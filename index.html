@@ -87,15 +87,13 @@
 </header>
 <main class="grid" id="grid"></main>
 <p class="mobile-note">
-  this one's built for hovering — open it on a desktop to let the tiles play.
+  this website is only suitable for desktop viewing.
 </p>
 <script>
   const COUNT = 12;
   const grid = document.getElementById("grid");
   const videos = [];
 
-  // Single source of truth: stop everything, optionally skip one.
-  // Even if a mouseleave is missed on a fast cursor move, the next
   // hover calls this and cleans up any straggler that's still playing.
   function stopAll(except) {
     for (const v of videos) {
