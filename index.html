@@ -10,9 +10,7 @@
     --ink: #2a2a28;
     --gap: 12px;
   }
-
   * { margin: 0; padding: 0; box-sizing: border-box; }
-
   body {
     background: var(--bg);
     color: var(--ink);
@@ -22,23 +20,19 @@
     padding: 32px;
     -webkit-font-smoothing: antialiased;
   }
-
   header {
     max-width: calc(3 * 280px + 2 * var(--gap));
     margin: 0 auto 24px;
   }
-
   header h1 {
     font-size: 13px;
     font-weight: 400;
     letter-spacing: 0.02em;
   }
-
   header p {
     color: #7a786f;
     margin-top: 2px;
   }
-
   .grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -46,7 +40,6 @@
     max-width: calc(3 * 280px + 2 * var(--gap));
     margin: 0 auto;
   }
-
   .tile {
     position: relative;
     aspect-ratio: 4 / 5;
@@ -54,7 +47,6 @@
     background: #d6d4cc;
     cursor: pointer;
   }
-
   .tile video {
     position: absolute;
     inset: 0;
@@ -63,7 +55,6 @@
     object-fit: cover;
     display: block;
   }
-
   /* generated film grain — no bandwidth cost, sits over everything */
   .tile::after {
     content: "";
@@ -76,7 +67,6 @@
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
     background-size: 160px 160px;
   }
-
   .mobile-note {
     display: none;
     max-width: 400px;
@@ -84,7 +74,6 @@
     text-align: left;
     color: #7a786f;
   }
-
   /* no-hover devices: hide grid, show note */
   @media (hover: none), (max-width: 600px) {
     .grid { display: none; }
@@ -93,47 +82,47 @@
 </style>
 </head>
 <body>
-
 <header>
   <h1>hover to play</h1>
 </header>
-
 <main class="grid" id="grid"></main>
-
 <p class="mobile-note">
   this one's built for hovering — open it on a desktop to let the tiles play.
 </p>
-
 <script>
   const COUNT = 12;
   const grid = document.getElementById("grid");
-  let current = null;
+  const videos = [];
+
+  // Single source of truth: stop everything, optionally skip one.
+  // Even if a mouseleave is missed on a fast cursor move, the next
+  // hover calls this and cleans up any straggler that's still playing.
+  function stopAll(except) {
+    for (const v of videos) {
+      if (v === except) continue;
+      v.pause();
+      v.currentTime = 1;     // rest on the still frame, not black
+      v.muted = true;
+      v.closest(".tile").classList.remove("playing");
+    }
+  }
 
   for (let i = 1; i <= COUNT; i++) {
     const n = String(i).padStart(2, "0");
-
     const tile = document.createElement("div");
     tile.className = "tile";
-
     const video = document.createElement("video");
     video.src = `videos/${n}.mp4#t=1`;  // #t=1 shows the 1-second frame as the still
     video.preload = "metadata";  // grab header ahead of time, not the footage
     video.muted = true;          // start muted; unmute on hover
     video.loop = true;
     video.playsInline = true;
-
     tile.append(video);
     grid.append(tile);
+    videos.push(video);
 
     tile.addEventListener("mouseenter", () => {
-      // stop whatever was playing
-      if (current && current !== video) {
-        current.pause();
-        current.currentTime = 1;
-        current.muted = true;
-        current.closest(".tile").classList.remove("playing");
-      }
-      current = video;
+      stopAll(video);            // kill any other playing tile, including stragglers
       tile.classList.add("playing");
       video.currentTime = 0;
       video.muted = false;       // hover is the user gesture — sound fires here
@@ -149,10 +138,11 @@
       video.currentTime = 1;   // back to the still frame, not black
       video.muted = true;
       tile.classList.remove("playing");
-      if (current === video) current = null;
     });
   }
-</script>
 
+  // Safety net: leaving the whole grid area stops everything.
+  grid.addEventListener("mouseleave", () => stopAll(null));
+</script>
 </body>
 </html>
