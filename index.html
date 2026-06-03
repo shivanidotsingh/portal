@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>stockholm</title>
+<style>
+  :root {
+    --bg: #e8e6df;
+    --ink: #2a2a28;
+    --gap: 12px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    padding: 32px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  header {
+    max-width: calc(3 * 280px + 2 * var(--gap));
+    margin: 0 auto 24px;
+  }
+
+  header h1 {
+    font-size: 13px;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+  }
+
+  header p {
+    color: #7a786f;
+    margin-top: 2px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--gap);
+    max-width: calc(3 * 280px + 2 * var(--gap));
+    margin: 0 auto;
+  }
+
+  .tile {
+    position: relative;
+    aspect-ratio: 4 / 5;
+    overflow: hidden;
+    background: #d6d4cc;
+    cursor: pointer;
+  }
+
+  .tile video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  /* generated film grain — no bandwidth cost, sits over everything */
+  .tile::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    opacity: 0.5;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+    background-size: 160px 160px;
+  }
+
+  .mobile-note {
+    display: none;
+    max-width: 400px;
+    margin: 0 auto;
+    text-align: left;
+    color: #7a786f;
+  }
+
+  /* no-hover devices: hide grid, show note */
+  @media (hover: none), (max-width: 600px) {
+    .grid { display: none; }
+    .mobile-note { display: block; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>slices of stockholm</h1>
+</header>
+
+<main class="grid" id="grid"></main>
+
+<p class="mobile-note">
+  this one's built for hovering — open it on a desktop to let the tiles play.
+</p>
+
+<script>
+  const COUNT = 12;
+  const grid = document.getElementById("grid");
+  let current = null;
+
+  for (let i = 1; i <= COUNT; i++) {
+    const n = String(i).padStart(2, "0");
+
+    const tile = document.createElement("div");
+    tile.className = "tile";
+
+    const video = document.createElement("video");
+    video.src = `videos/${n}.mp4#t=1`;  // #t=1 shows the 1-second frame as the still
+    video.preload = "metadata";  // grab header ahead of time, not the footage
+    video.muted = true;          // start muted; unmute on hover
+    video.loop = true;
+    video.playsInline = true;
+
+    tile.append(video);
+    grid.append(tile);
+
+    tile.addEventListener("mouseenter", () => {
+      // stop whatever was playing
+      if (current && current !== video) {
+        current.pause();
+        current.currentTime = 1;
+        current.muted = true;
+        current.closest(".tile").classList.remove("playing");
+      }
+      current = video;
+      tile.classList.add("playing");
+      video.currentTime = 0;
+      video.muted = false;       // hover is the user gesture — sound fires here
+      video.play().catch(() => {
+        // if the browser blocks unmuted playback, fall back to muted
+        video.muted = true;
+        video.play().catch(() => {});
+      });
+    });
+
+    tile.addEventListener("mouseleave", () => {
+      video.pause();
+      video.currentTime = 1;   // back to the still frame, not black
+      video.muted = true;
+      tile.classList.remove("playing");
+      if (current === video) current = null;
+    });
+  }
+</script>
+
+</body>
+</html>
