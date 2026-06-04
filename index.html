@@ -90,57 +90,87 @@
   this website is only suitable for desktop viewing.
 </p>
 <script>
-  const COUNT = 9;
-  const grid = document.getElementById("grid");
-  const videos = [];
+  var COUNT = 9;
+  var STILL = 1;            // seconds into the clip to use as the resting frame
+  var grid = document.getElementById("grid");
+  var videos = [];
 
-  // hover calls this and cleans up any straggler that's still playing.
+  // Stop everything except the one passed in. Safe to call anytime.
   function stopAll(except) {
-    for (const v of videos) {
+    for (var i = 0; i < videos.length; i++) {
+      var v = videos[i];
       if (v === except) continue;
-      v.pause();
-      v.currentTime = 1;     // rest on the still frame, not black
+      try { v.pause(); } catch (e) {}
+      seekTo(v, STILL);
       v.muted = true;
-      v.closest(".tile").classList.remove("playing");
+      var t = v.closest(".tile");
+      if (t) t.classList.remove("playing");
     }
   }
 
-  for (let i = 1; i <= COUNT; i++) {
-    const n = String(i).padStart(2, "0");
-    const tile = document.createElement("div");
-    tile.className = "tile";
-    const video = document.createElement("video");
-    video.src = `videos/${n}.mp4#t=1`;  // #t=1 shows the 1-second frame as the still
-    video.preload = "metadata";  // grab header ahead of time, not the footage
-    video.muted = true;          // start muted; unmute on hover
-    video.loop = true;
-    video.playsInline = true;
-    tile.append(video);
-    grid.append(tile);
-    videos.push(video);
-
-    tile.addEventListener("mouseenter", () => {
-      stopAll(video);            // kill any other playing tile, including stragglers
-      tile.classList.add("playing");
-      video.currentTime = 0;
-      video.muted = false;       // hover is the user gesture — sound fires here
-      video.play().catch(() => {
-        // if the browser blocks unmuted playback, fall back to muted
-        video.muted = true;
-        video.play().catch(() => {});
+  // Safari throws if you set currentTime before metadata is ready.
+  // Wait for it if needed, then seek.
+  function seekTo(v, time) {
+    if (v.readyState >= 1) {           // HAVE_METADATA or better
+      try { v.currentTime = time; } catch (e) {}
+    } else {
+      v.addEventListener("loadedmetadata", function once() {
+        v.removeEventListener("loadedmetadata", once);
+        try { v.currentTime = time; } catch (e) {}
       });
-    });
-
-    tile.addEventListener("mouseleave", () => {
-      video.pause();
-      video.currentTime = 1;   // back to the still frame, not black
-      video.muted = true;
-      tile.classList.remove("playing");
-    });
+    }
   }
 
-  // Safety net: leaving the whole grid area stops everything.
-  grid.addEventListener("mouseleave", () => stopAll(null));
+  for (var i = 1; i <= COUNT; i++) {
+    (function (i) {
+      var n = (i < 10 ? "0" : "") + i;
+
+      var tile = document.createElement("div");
+      tile.className = "tile";
+
+      var video = document.createElement("video");
+      // attributes (not just properties) — Safari is happier this way
+      video.setAttribute("playsinline", "");
+      video.setAttribute("webkit-playsinline", "");
+      video.setAttribute("muted", "");
+      video.setAttribute("preload", "metadata");
+      video.muted = true;
+      video.loop = true;
+      video.src = "videos/" + n + ".mp4";
+
+      tile.appendChild(video);
+      grid.appendChild(tile);
+      videos.push(video);
+
+      // paint the resting frame once metadata is in
+      seekTo(video, STILL);
+
+      tile.addEventListener("mouseenter", function () {
+        stopAll(video);
+        tile.classList.add("playing");
+        try { video.currentTime = 0; } catch (e) {}
+        video.muted = false;          // try with sound (hover = user gesture)
+        var p = video.play();
+        if (p && p.catch) {
+          p.catch(function () {       // Safari blocked unmuted — retry muted
+            video.muted = true;
+            var p2 = video.play();
+            if (p2 && p2.catch) p2.catch(function () {});
+          });
+        }
+      });
+
+      tile.addEventListener("mouseleave", function () {
+        try { video.pause(); } catch (e) {}
+        seekTo(video, STILL);
+        video.muted = true;
+        tile.classList.remove("playing");
+      });
+    })(i);
+  }
+
+  // Safety net: leaving the whole grid stops everything.
+  grid.addEventListener("mouseleave", function () { stopAll(null); });
 </script>
 </body>
 </html>
